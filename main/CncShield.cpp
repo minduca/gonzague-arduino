@@ -1,22 +1,18 @@
 #include <Arduino.h>
 #include "Motor.cpp"
+#include "Pins.cpp"
 
-/*
-   CNC shield V3 + A4988 drivers + Nema motors
-   GRBL Pin Layout
-*/
 class CncShield {
   private:
     const int delayMicrosecondsPerStep = 200;
-    const int stepperEnabledPin = 8; //Stepper Enable
     Motor motorX;
     Motor motorY;
 
   public:
-    CncShield(): motorX(5, 2), motorY(6, 3) { }
+    CncShield(): motorX(STEP_DIRECTION_X_PIN, STEP_PULSE_X_PIN), motorY(STEP_DIRECTION_Y_PIN, STEP_PULSE_Y_PIN) { }
 
     void setupPins() {
-      pinMode(this->stepperEnabledPin, OUTPUT);
+      pinMode(STEPPER_ENABLE_PIN, OUTPUT);
 
       this->disable();
       this->motorX.setupPins();
@@ -24,11 +20,11 @@ class CncShield {
     }
 
     void enable() {
-      digitalWrite(this->stepperEnabledPin, LOW);
+      digitalWrite(STEPPER_ENABLE_PIN, LOW);
     }
 
     void disable() {
-      digitalWrite(this->stepperEnabledPin, HIGH);
+      digitalWrite(STEPPER_ENABLE_PIN, HIGH);
     }
 
     void step(boolean clockwiseX, boolean clockwiseY, int numberOfSteps) {
