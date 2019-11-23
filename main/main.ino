@@ -1,12 +1,13 @@
 #include "Gonzague.cpp"
 
-Gonzague gonzague;
-
 class CommandResult {
   public:
     virtual String getDescription() {
-      return "a";
+      return "";
     }
+    virtual ~CommandResult() { }
+
+    virtual void free() = 0;
 };
 
 class MessageResult: public CommandResult {
@@ -19,13 +20,17 @@ class MessageResult: public CommandResult {
     String getDescription() {
       return this->message;
     }
+
+    void free() {
+      delete this;
+    }
 };
 
 class Command {
   public:
-    virtual CommandResult execute(Gonzague gonzague) {
+    virtual CommandResult *execute(Gonzague gonzague) {
       (void)gonzague; // Suppress warning
-      return CommandResult();
+      return NULL;
     }
     virtual ~Command() { }
 
@@ -40,7 +45,6 @@ class MovementResult: public CommandResult {
 
   public:
     MovementResult(String op, String unt, int val): opDescription(op), unit(unt), value(val) { }
-    ~MovementResult() {}
 
     String getDescription() {
       String description = opDescription;
@@ -48,6 +52,10 @@ class MovementResult: public CommandResult {
       description += value;
       description += unit;
       return description;
+    }
+
+    void free() {
+      delete this;
     }
 };
 
@@ -61,9 +69,8 @@ class MoveCommand: public Command {
 
   public:
     MoveCommand(int dist, MoveDirection dir): distance(dist), direction(dir) { }
-    ~MoveCommand() {}
 
-    CommandResult execute(Gonzague gonzague) {
+    CommandResult *execute(Gonzague gonzague) {
       String op = "";
       if (this->direction == Forward) {
         op = "Move forward";
@@ -73,7 +80,7 @@ class MoveCommand: public Command {
         op = "Move backward";
         gonzague.moveBackward(distance);
       }
-      return MovementResult(op, "cm", this->distance);
+      return new MovementResult(op, "cm", this->distance);
     }
 
     void free() {
@@ -88,9 +95,8 @@ class TurnCommand: public Command {
 
   public:
     TurnCommand(int ang, TurnDirection dir): angle(ang), direction(dir) { }
-    ~TurnCommand() { }
 
-    CommandResult execute(Gonzague gonzague) {
+    CommandResult *execute(Gonzague gonzague) {
       String op = "";
       if (this->direction == Left) {
         op = "Move left";
@@ -100,7 +106,7 @@ class TurnCommand: public Command {
         op = "Move right";
         gonzague.turnRight(angle);
       }
-      return MovementResult(op, "degrees", this->angle);
+      return new MovementResult(op, "degrees", this->angle);
     }
 
     void free() {
@@ -110,9 +116,9 @@ class TurnCommand: public Command {
 
 class UnknownOpCommand: public Command {
   public:
-    CommandResult execute(Gonzague gonzague) {
+    CommandResult *execute(Gonzague gonzague) {
       (void)gonzague; // Suppress warning
-      return MessageResult("Unknown operation");
+      return new MessageResult("Unknown operation");
     }
 
     void free() {
@@ -133,7 +139,12 @@ class SerialCommandQueue {
   public:
     SerialCommandQueue() { }
 
-    bool hasIncommingMessage() {
+    void setup(int dataRate) {
+      // opens serial port and sets data rate
+      Serial.begin(dataRate);
+    }
+
+    bool hasNext() {
       return Serial.available() > 0;
     }
 
@@ -181,30 +192,122 @@ class SerialCommandQueue {
     }
 };
 
+
+
+#include <IRremote.h>
+
+/*
+  HX1838 VS1838 IR Remote
+*/
+#define IR_UP_HEX 0xFF629D
+#define IR_DOWN_HEX 0xFFA857
+#define IR_LEFT_HEX 0xFF22DD
+#define IR_RIGHT_HEX 0xFFC23D
+#define IR_REPEAT_HEX 0xFFFFFFFF
+
+const int IR_RECEIVER_PIN = 4; // Originally Step Pulse Z
+
+class InfraRedRemoteCommandQueue {
+  private:
+    IRrecv irrecv;
+    decode_results results;
+    long unsigned lastActionCode;
+
+  public:
+    InfraRedRemoteCommandQueue(): irrecv(IR_RECEIVER_PIN), lastActionCode(0) { }
+
+    void setup() {
+      irrecv.enableIRIn();
+      irrecv.blink13(true);
+    }
+
+    Command *tryDequeCommand() {
+      Command *command = NULL;
+      if (irrecv.decode(&results)) {
+        unsigned long actionCode = results.value;
+        this->print(actionCode);
+        command = this->tryDequeCommand(actionCode);
+
+        if (actionCode != IR_REPEAT_HEX) {
+          this->lastActionCode = command ? actionCode : 0;
+        }
+
+        irrecv.resume();
+      }
+      return command;
+    }
+
+  private:
+    void print(unsigned long actionCode) {
+      Serial.print(actionCode, HEX);
+      Serial.print(" latest:");
+      Serial.println(this->lastActionCode);
+    }
+
+    Command *tryDequeCommand(unsigned long actionCode) {
+      Command *command = NULL;
+      switch (actionCode) {
+        case IR_UP_HEX:
+          command = new MoveCommand(DEFAULT_CM_DISTANCE, Forward);
+          break;
+        case IR_DOWN_HEX:
+          command = new MoveCommand(DEFAULT_CM_DISTANCE, Backward);
+          break;
+        case IR_LEFT_HEX:
+          command = new TurnCommand(DEFAULT_DEGREE_ANGLE, Left);
+          break;
+        case IR_RIGHT_HEX:
+          command = new TurnCommand(DEFAULT_DEGREE_ANGLE, Right);
+          break;
+        case IR_REPEAT_HEX:
+          if (this->lastActionCode > 0) {
+            command = this->tryDequeCommand(this->lastActionCode);
+          }
+          break;
+      }
+      return command;
+    }
+};
+
+Gonzague gonzague;
 SerialCommandQueue serialQueue;
+InfraRedRemoteCommandQueue irQueue;
 
 void setup() {
-  Serial.begin(9600); // opens serial port and sets data rate to 9600 bps
+  irQueue.setup();
+  serialQueue.setup(9600);
   gonzague.setup();
   Serial.println("Gonzague Started");
 }
 
 void loop() {
-  if (serialQueue.hasIncommingMessage()) {
+
+  Command* command = irQueue.tryDequeCommand();
+
+  if (command || serialQueue.hasNext()) {
     Serial.println("--------");
     Serial.println("Wake Up");
     gonzague.wakeUp();
 
-    while (serialQueue.hasIncommingMessage()) {
-      Command* command = serialQueue.dequeCommand();
-      if (command) {
-        CommandResult result = command->execute(gonzague);
-        Serial.println(result.getDescription());
-        command->free();
-      }
+    while (command) {
+      handleCommand(command);
+      command = irQueue.tryDequeCommand();
+    }
+
+    while (serialQueue.hasNext()) {
+      handleCommand(serialQueue.dequeCommand());
     }
 
     gonzague.sleep();
     Serial.println("Sleep");
+  }
+}
+
+void handleCommand(Command* command) {
+  if (command) {
+    CommandResult* result = command->execute(gonzague);
+    command->free();
+    Serial.println(result->getDescription());
+    result->free();
   }
 }
