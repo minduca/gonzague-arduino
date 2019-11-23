@@ -28,7 +28,7 @@ class Gonzague {
       this->cnc.step(true, true, steps);
     }
 
-    void moveBack(int cmDistance) {
+    void moveBackward(int cmDistance) {
       int steps = this->toCmSteps(cmDistance);
       this->cnc.step(false, false, steps);
     }
