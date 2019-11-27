@@ -1,3 +1,6 @@
+#ifndef __GONZAGUE_INCLUDED__
+#define __GONZAGUE_INCLUDED__
+
 #include <Arduino.h>
 #include "CncShield.cpp"
 
@@ -52,3 +55,5 @@ class Gonzague {
       return angle * oneDegreeSteps;
     }
 };
+
+#endif

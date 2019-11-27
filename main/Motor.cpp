@@ -1,3 +1,6 @@
+#ifndef __MOTOR_INCLUDED__
+#define __MOTOR_INCLUDED__
+
 #include <Arduino.h>
 
 class Motor {
@@ -30,3 +33,5 @@ class Motor {
       return stepPin;
     }
 };
+
+#endif

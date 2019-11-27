@@ -7,6 +7,8 @@
 #define STEP_PULSE_X_PIN 2
 #define STEP_PULSE_Y_PIN 3
 
+#define IR_RECEIVER_PIN 4 // Originally Step Pulse Z
+
 #define STEP_DIRECTION_X_PIN 5
 #define STEP_DIRECTION_Y_PIN 6
 

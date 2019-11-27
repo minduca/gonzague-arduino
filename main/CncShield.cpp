@@ -1,3 +1,6 @@
+#ifndef __CNC_SHIELD_INCLUDED__
+#define __CNC_SHIELD_INCLUDED__
+
 #include <Arduino.h>
 #include "Motor.cpp"
 #include "Pins.cpp"
@@ -75,3 +78,5 @@ class CncShield {
       }
     }
 };
+
+#endif
