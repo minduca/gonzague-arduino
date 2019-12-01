@@ -58,3 +58,9 @@ You can control the robot using an IR remote control.
 See the hardware requirements for supported IR remote control types.
 
 Only the directional buttons are implemented (Up, Down, Left and Right buttons).
+
+### License
+
+See [LICENSE](LICENSE.txt) file.
+
+This project uses the [IRremote](https://github.com/z3t0/Arduino-IRremote) library, which is governed by its own separate license.
