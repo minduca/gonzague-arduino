@@ -2,6 +2,8 @@
 
 Robot that interprets Serial messages and IR remote instructions to walk around.
 
+To control the robot using an application running on a Raspberry PI, see [gonzague-bot](https://github.com/minduca/gonzague-bot).
+
 ## Getting Started
 
 In order to run this project, you will need to assemble some hardware.
